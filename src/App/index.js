@@ -38,7 +38,6 @@ class App {
     if (this.extra) return;
     const data = JSON.parse(JSON.stringify(settings));
     if (this._settings && this._settings.APP_CURRENT_ID !== data.APP_CURRENT_ID) this._book = undefined;
-    // console.log(data);
     data.APP_LIST_OF_EXEPTIONS_SHEETS = JSON.stringify(data.APP_LIST_OF_EXEPTIONS_SHEETS || '[]');
     PropertiesService.getScriptProperties().setProperties(data, false);
     this._settings = undefined;
@@ -94,6 +93,9 @@ class App {
     this.book.sheets = sorted;
   }
 
+  /**
+   * Добавляет новый лист для примера
+   */
   addNewBlankUserSheet() {
     if (!this.book.sheets.some((sheet) => sheet.properties.title === 'Новый лист для вашего примера')) {
       const addSheetRequest = Sheets.newAddSheetRequest();
@@ -120,7 +122,7 @@ class App {
   }
 
   /**
-   *
+   * Обновляет содержание
    */
   generateTOC() {
     const excludeSheetNames = this.settings.APP_LIST_OF_EXEPTIONS_SHEETS;
@@ -145,6 +147,9 @@ class App {
     }
   }
 
+  /**
+   * "Обнуляет" Таблицу
+   */
   cleanBook() {
     const requests = this.book.sheets
       .filter((sheet) => !this.settings.APP_LIST_OF_EXEPTIONS_SHEETS.includes(sheet.properties.title))
@@ -161,6 +166,11 @@ class App {
     }
   }
 
+  /**
+   * Добавляет технический штамп для Таблицы
+   *
+   * @param {*} param0
+   */
   updateStamp({ num, prevUrl, prevTitle }) {
     if (this.book.sheets.some((sheet) => sheet.properties.title === 'О Таблице'))
       Sheets.Spreadsheets.Values.update(
