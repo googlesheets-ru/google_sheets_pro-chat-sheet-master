@@ -1,6 +1,8 @@
 # Мастер-скрипт для управления Таблицами чата
 
-Чат [@google_sheets_pro](https://t.me/google_sheets_pro) содержит [набор Таблиц](https://drive.google.com/drive/folders/1mgzpM6dID_GUnzo-aQAAEv3kpFEmtgPx), которые участники используют для совместного решения. Данный репозиторий содержит код этого скрипта.
+Чат [@google_sheets_pro](https://t.me/google_sheets_pro) содержит [набор Таблиц](https://drive.google.com/drive/folders/1mgzpM6dID_GUnzo-aQAAEv3kpFEmtgPx), которые участники используют для совместного решения. Данный репозиторий содержит код скрипта, который управляет этими Таблицами.
+
+Сам скрипт [Скрипты Таблицы чата t.me/google_sheets_pro [master]](https://script.google.com/d/1H8evtH2eYLg5lFUwlI_ao2kk4bN-Q1Zqt8r90cj-JaS6Wk5Gwvh6OoRc/edit?usp=sharing)
 
 Некоторые функций:
 
