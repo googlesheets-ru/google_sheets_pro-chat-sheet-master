@@ -6,7 +6,6 @@ class App {
    * @param {App.Settings} settings
    */
   constructor(settings) {
-    this.extra = !!settings;
     this._settings = settings;
   }
 
@@ -35,7 +34,6 @@ class App {
    * @param {App.Settings} settings
    */
   set settings(settings) {
-    if (this.extra) return;
     const data = JSON.parse(JSON.stringify(settings));
     if (this._settings && this._settings.APP_CURRENT_ID !== data.APP_CURRENT_ID) this._book = undefined;
     data.APP_LIST_OF_EXEPTIONS_SHEETS = JSON.stringify(data.APP_LIST_OF_EXEPTIONS_SHEETS || '[]');
