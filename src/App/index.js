@@ -9,8 +9,20 @@ class App {
     this._settings = settings;
   }
 
+  /**
+   *
+   * @param {GoogleAppsScript.Events.DoGet} e
+   * @returns {GoogleAppsScript.Content.TextOutput}
+   */
   doGet(e) {
-    return ContentService.createTextOutput(JSON.stringify({ w: 1 })).setMimeType(ContentService.MimeType.JSON);
+    const out = { error: undefined, data: undefined, action: undefined };
+    if (e.parameter?.action === 'get_app_current_id') {
+      out.data = {
+        APP_CURRENT_ID: this.settings.APP_CURRENT_ID,
+      };
+      out.action = e.parameter.action;
+    }
+    return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
   }
 
   doPost(e) {

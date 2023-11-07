@@ -1,5 +1,5 @@
 /* global App */
 /* exported init */
-function init() {
-  return () => App;
+function init(...args) {
+  return new App(...args);
 }
