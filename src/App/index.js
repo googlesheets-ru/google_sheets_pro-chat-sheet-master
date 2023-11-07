@@ -9,6 +9,14 @@ class App {
     this._settings = settings;
   }
 
+  doGet(e) {
+    return ContentService.createTextOutput(JSON.stringify({ w: 1 })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  doPost(e) {
+    return ContentService.createTextOutput(JSON.stringify({ result: 'OK' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   get currentBook() {
     if (!this._currentBook) this._currentBook = SpreadsheetApp.openById(this.settings.APP_CURRENT_ID);
     return this._currentBook;
