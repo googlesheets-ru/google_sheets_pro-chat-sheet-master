@@ -28,3 +28,21 @@ function triggerUpdateEveryHour() {
   app.orderSheetsByProtections();
   app.generateTOC();
 }
+
+/* exported userActionCleanBook */
+function userActionCleanBook() {
+  const excludes = ['формула по выпадающему списку'];
+  new App().cleanBook({ excludes });
+}
+
+/* exported cleanOldSheet */
+function cleanOldSheet() {
+  const app = new App({
+    APP_CURRENT_FILE_NUM: '8',
+    APP_CURRENT_ID: '1MqeW7LkEUcsDH8lUksXBLHWmSeu8up2Jr_3ujVwE4SE',
+    APP_FOLDER_ID: '1mgzpM6dID_GUnzo-aQAAEv3kpFEmtgPx',
+    APP_LIST_OF_EXEPTIONS_SHEETS: '["О Таблице"]',
+  });
+  app.releaseSheets();
+  app.generateTOC();
+}

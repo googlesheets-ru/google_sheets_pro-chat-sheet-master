@@ -6,8 +6,27 @@ class App {
    * @param {App.Settings} settings
    */
   constructor(settings) {
-    this.extra = !!settings;
     this._settings = settings;
+  }
+
+  /**
+   *
+   * @param {GoogleAppsScript.Events.DoGet} e
+   * @returns {GoogleAppsScript.Content.TextOutput}
+   */
+  doGet(e) {
+    const out = { error: undefined, data: undefined, action: undefined };
+    if (e.parameter?.action === 'get_app_current_id') {
+      out.data = {
+        APP_CURRENT_ID: this.settings.APP_CURRENT_ID,
+      };
+      out.action = e.parameter.action;
+    }
+    return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  doPost(e) {
+    return ContentService.createTextOutput(JSON.stringify({ result: 'OK' })).setMimeType(ContentService.MimeType.JSON);
   }
 
   get currentBook() {
@@ -35,7 +54,6 @@ class App {
    * @param {App.Settings} settings
    */
   set settings(settings) {
-    if (this.extra) return;
     const data = JSON.parse(JSON.stringify(settings));
     if (this._settings && this._settings.APP_CURRENT_ID !== data.APP_CURRENT_ID) this._book = undefined;
     data.APP_LIST_OF_EXEPTIONS_SHEETS = JSON.stringify(data.APP_LIST_OF_EXEPTIONS_SHEETS || '[]');
@@ -51,7 +69,7 @@ class App {
   recallBook() {
     this._book = Sheets.Spreadsheets.get(this.settings.APP_CURRENT_ID, {
       includeGridData: false,
-      fields: 'spreadsheetId,sheets(properties(sheetId,index,title),protectedRanges(range))',
+      fields: 'spreadsheetId,sheets(properties(sheetId,index,title),protectedRanges(range,protectedRangeId))',
     });
   }
 
@@ -150,9 +168,11 @@ class App {
   /**
    * "Обнуляет" Таблицу
    */
-  cleanBook() {
+  cleanBook({ excludes }) {
+    const excludesE = excludes || [];
+    const listExceptions = [...this.settings.APP_LIST_OF_EXEPTIONS_SHEETS, ...excludesE];
     const requests = this.book.sheets
-      .filter((sheet) => !this.settings.APP_LIST_OF_EXEPTIONS_SHEETS.includes(sheet.properties.title))
+      .filter((sheet) => !listExceptions.includes(sheet.properties.title))
       .map((sheet) => {
         const deleteSheetRequest = Sheets.newDeleteSheetRequest();
         deleteSheetRequest.sheetId = sheet.properties.sheetId;
@@ -181,5 +201,29 @@ class App {
           valueInputOption: 'RAW',
         },
       );
+  }
+
+  releaseSheets() {
+    /** @type {GoogleAppsScript.Sheets.Schema.Sheet[]} */
+    const sheets = JSON.parse(JSON.stringify(this.book.sheets));
+    const requests = [];
+    sheets.forEach((sheet) => {
+      sheet.protectedRanges?.forEach((protectedRange) => {
+        if (protectedRange.protectedRangeId) {
+          const deleteProtectedRangeRequest = Sheets.newDeleteProtectedRangeRequest();
+          deleteProtectedRangeRequest.protectedRangeId = protectedRange.protectedRangeId;
+          const request = Sheets.newRequest();
+          request.deleteProtectedRange = deleteProtectedRangeRequest;
+          requests.push(request);
+        }
+      });
+    });
+    if (requests.length) {
+      const resource = Sheets.newBatchUpdateSpreadsheetRequest();
+      resource.requests = requests;
+      resource.responseIncludeGridData = false;
+      Sheets.Spreadsheets.batchUpdate(resource, this.settings.APP_CURRENT_ID);
+      this.book.sheets = sheets;
+    }
   }
 }
