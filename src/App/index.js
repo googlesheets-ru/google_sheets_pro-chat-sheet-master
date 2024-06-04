@@ -34,6 +34,10 @@ class App {
     return this._currentBook;
   }
 
+  set currentBook(book) {
+    this._currentBook = book;
+  }
+
   get folder() {
     if (!this._folder) this._folder = DriveApp.getFolderById(this.settings.APP_FOLDER_ID);
     return this._folder;
@@ -67,7 +71,7 @@ class App {
   }
 
   recallBook() {
-    this._book = Sheets.Spreadsheets.get(this.settings.APP_CURRENT_ID, {
+    this._book = Sheets.Spreadsheets.get(this.currentBook.getId(), {
       includeGridData: false,
       fields: 'spreadsheetId,sheets(properties(sheetId,index,title),protectedRanges(range,protectedRangeId))',
     });
@@ -225,5 +229,76 @@ class App {
       Sheets.Spreadsheets.batchUpdate(resource, this.settings.APP_CURRENT_ID);
       this.book.sheets = sheets;
     }
+  }
+
+  updateAllBooks() {
+    const SETTINGS = {
+      D2: {
+        text: 'Канал "Таблицы Гугл" t.me/GoogleSheets_ru',
+        link: 'https://t.me/+lmannExYEyg5OTZi',
+        startOffset: 21,
+        rangeA1: 'D2',
+      },
+      D3: {
+        text: 'Таблицы и Скрипты Гугл - чат t.me/google_sheets_pro',
+        link: 'https://t.me/+pLLUBtcXIqY0MGMy',
+        startOffset: 29,
+        rangeA1: 'D3',
+      },
+      D4: {
+        text: 'Чат по Apps Script для специалистов t.me/googleappsscriptrc',
+        link: 'https://t.me/+7HbI3eq42C80MmMy',
+        startOffset: 36,
+        rangeA1: 'D4',
+      },
+    };
+
+    const { rangeA1, text, link, startOffset } = SETTINGS.D4;
+
+    const textStyle = SpreadsheetApp.newTextStyle();
+    textStyle.setForegroundColor('#434343');
+    textStyle.setFontSize(10);
+    textStyle.setItalic(true);
+    const ts = textStyle.build();
+    console.log(this.settings.APP_FOLDER_ID);
+    const books = DriveApp.searchFiles(
+      `'${this.settings.APP_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.spreadsheet'`,
+    );
+
+    const out = [];
+
+    while (books.hasNext()) {
+      const book = SpreadsheetApp.openById(books.next().getId());
+      console.log(book.getName());
+      const sheet = book.getSheetByName('О Таблице');
+      if (sheet) {
+        const range = sheet.getRange(rangeA1);
+        const item = {};
+        item.name = book.getName();
+        item.url = book.getUrl();
+        item.value = range.getValue();
+        item.rtv = range.getRichTextValue().getLinkUrl();
+        out.push(item);
+
+        if (item.value !== text || item.rtv !== link) {
+          const nrtv = SpreadsheetApp.newRichTextValue();
+          nrtv.setText(text);
+          nrtv.setTextStyle(ts);
+          nrtv.setLinkUrl(startOffset, text.length, link);
+          range.setRichTextValue(nrtv.build());
+          range.setHorizontalAlignment('right').setVerticalAlignment('middle');
+        }
+      }
+    }
+
+    out
+      .sort((a, b) => {
+        const aN = Number(a.name.replace(/.*#(\d+).*/, '$1')) || 0;
+        const bN = Number(b.name.replace(/.*#(\d+).*/, '$1')) || 0;
+        if (aN < bN) return -1;
+        if (aN > bN) return 1;
+        return 0;
+      })
+      .forEach((item) => console.log(item));
   }
 }
