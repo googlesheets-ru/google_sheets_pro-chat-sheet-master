@@ -1,5 +1,11 @@
 /* global App */
+
 /* exported init */
+/**
+ * Используется для инициализации в качетсве библиотеки. Каждый новый init создает новый экземпляр приложения
+ * @param  {...any} args
+ * @returns
+ */
 function init(...args) {
   return new App(...args);
 }
