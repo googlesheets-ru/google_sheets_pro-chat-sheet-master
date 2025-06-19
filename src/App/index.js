@@ -1,18 +1,16 @@
-/* global */
 /* exported App */
 class App {
   /**
-   *
-   * @param {App.Settings} settings
+   * @param {App.Settings} [settings] Начальные настройки.
    */
   constructor(settings) {
     this._settings = settings;
   }
 
   /**
-   *
-   * @param {GoogleAppsScript.Events.DoGet} e
-   * @returns {GoogleAppsScript.Content.TextOutput}
+   * Обрабатывает GET-запросы.
+   * @param {GoogleAppsScript.Events.DoGet} e Объект события.
+   * @returns {GoogleAppsScript.Content.TextOutput} JSON-ответ.
    */
   doGet(e) {
     const out = { error: undefined, data: undefined, action: undefined };
@@ -21,12 +19,11 @@ class App {
   }
 
   /**
-   *
-   * @param {GoogleAppsScript.Events.DoPost} e
-   * @returns
+   * Обрабатывает POST-запросы.
+   * @param {GoogleAppsScript.Events.DoPost} e Объект события.
+   * @returns {GoogleAppsScript.Content.TextOutput} JSON-ответ.
    */
   doPost(e) {
-    // return ContentService.createTextOutput(JSON.stringify({ result: JSON.stringify(e.postData) })).setMimeType(ContentService.MimeType.JSON);
     const out = { error: undefined, data: undefined, action: undefined };
     const contents = JSON.parse(e.postData.contents);
 
@@ -47,6 +44,7 @@ class App {
   }
 
   /**
+   * Текущая книга (таблица).
    * @type {GoogleAppsScript.Spreadsheet.Spreadsheet}
    */
   get currentBook() {
@@ -54,10 +52,17 @@ class App {
     return this._currentBook;
   }
 
+  /**
+   * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} book
+   */
   set currentBook(book) {
     this._currentBook = book;
   }
 
+  /**
+   * Родительская папка.
+   * @type {GoogleAppsScript.Drive.Folder}
+   */
   get folder() {
     if (!this._folder) this._folder = DriveApp.getFolderById(this.settings.APP_FOLDER_ID);
     return this._folder;
@@ -85,11 +90,18 @@ class App {
     this._settings = undefined;
   }
 
+  /**
+   * Полная информация о книге из Sheets API.
+   * @type {GoogleAppsScript.Sheets.Schema.Spreadsheet}
+   */
   get book() {
     if (!this._book) this.recallBook();
     return this._book;
   }
 
+  /**
+   * Обновляет кеш информации о книге (`this._book`).
+   */
   recallBook() {
     this._book = Sheets.Spreadsheets.get(this.currentBook.getId(), {
       includeGridData: false,
@@ -106,57 +118,35 @@ class App {
    * @returns {void} Ничего не возвращает. Обновляет порядок листов в текущей книге.
    */
   orderSheetsByProtections() {
-    // Получаем список имен листов-исключений из настроек
     const exeptionSheetNames = this.settings.APP_LIST_OF_EXEPTIONS_SHEETS;
-    // Создаем глубокую копию массива листов и сортируем его
     const sorted = JSON.parse(JSON.stringify(this.book.sheets)).sort((a, b) => {
-      // Определяем, является ли лист A исключением
       const excludesA = exeptionSheetNames.indexOf(a.properties.title);
-      // Определяем, является ли лист B исключением
       const excludesB = exeptionSheetNames.indexOf(b.properties.title);
-      // Если оба листа - исключения, сортируем их по порядку в списке исключений
       if (excludesA > -1 && excludesB > -1) return excludesA - excludesB;
-      // Если только лист A - исключение, он идет первым
       if (excludesA > -1) return -1;
-      // Если только лист B - исключение, он идет первым
       if (excludesB > -1) return 1;
-      // Определяем, защищен ли лист A (защищен, если есть хотя бы один защищенный диапазон, покрывающий весь лист)
       const protectedA = a.protectedRanges?.some((r) => Object.keys(r.range).length === 1) ?? false;
-      // Определяем, защищен ли лист B
       const protectedB = b.protectedRanges?.some((r) => Object.keys(r.range).length === 1) ?? false;
-      // Сортируем по признаку защищенности (защищенные идут раньше)
       return protectedA - protectedB;
     });
-    // Создаем массив запросов для batchUpdate
     const requests = [];
-    // Заполняем массив запросами на обновление индекса (позиции) каждого листа
     requests.push(
       ...sorted.map((sheet, index) => {
-        // Создаем запрос на обновление свойств листа
         const updatePropertiesRequest = Sheets.newUpdateSheetPropertiesRequest();
-        // Указываем, что обновляем только индекс
         updatePropertiesRequest.fields = 'index';
-        // Устанавливаем новые свойства: новый индекс и ID листа
         updatePropertiesRequest.properties = {
           index,
           sheetId: sheet.properties.sheetId,
         };
-        // Создаем общий запрос
         const request = Sheets.newRequest();
-        // Добавляем в него запрос на обновление свойств листа
         request.updateSheetProperties = updatePropertiesRequest;
         return request;
       }),
     );
-    // Создаем ресурс для batchUpdate
     const resource = Sheets.newBatchUpdateSpreadsheetRequest();
-    // Добавляем массив запросов в ресурс
     resource.requests = requests;
-    // Указываем, что не нужно возвращать данные сетки в ответе (для оптимизации)
     resource.responseIncludeGridData = false;
-    // Выполняем batchUpdate для обновления позиций листов
     Sheets.Spreadsheets.batchUpdate(resource, this.settings.APP_CURRENT_ID);
-    // Обновляем порядок листов в локальном объекте книги
     this.book.sheets = sorted;
   }
 
@@ -183,8 +173,6 @@ class App {
         properties: reply.properties,
       });
       this._book.sheets.forEach((sheet, i) => (sheet.properties.index = i));
-
-      console.log(JSON.stringify(this.book, null, '  '));
     }
   }
 
@@ -215,9 +203,11 @@ class App {
   }
 
   /**
-   * "Обнуляет" Таблицу
+   * Удаляет все листы, кроме исключений.
+   * @param {{excludes: string[]}} param0
+   * @param {string[]} param0.excludes Дополнительный список листов-исключений.
    */
-  cleanBook(excludes) {
+  cleanBook({ excludes }) {
     const excludesE = excludes || [];
     const listExceptions = [...this.settings.APP_LIST_OF_EXEPTIONS_SHEETS, ...excludesE];
     const requests = this.book.sheets
@@ -235,6 +225,9 @@ class App {
     }
   }
 
+  /**
+   * Отвязывает и удаляет все формы, связанные с текущей книгой.
+   */
   unlinkForms() {
     this.currentBook.getSheets().forEach((sheet) => {
       const formUrl = sheet.getFormUrl();
@@ -249,9 +242,11 @@ class App {
   }
 
   /**
-   * Добавляет технический штамп для Таблицы
-   *
-   * @param {*} param0
+   * Добавляет технический штамп в "О Таблице".
+   * @param {{num: number, prevUrl: string, prevTitle: string}} stamp
+   * @param {number} stamp.num Новый номер таблицы.
+   * @param {string} stamp.prevUrl URL предыдущей таблицы.
+   * @param {string} stamp.prevTitle Имя предыдущей таблицы.
    */
   updateStamp({ num, prevUrl, prevTitle }) {
     if (this.book.sheets.some((sheet) => sheet.properties.title === 'О Таблице'))
@@ -265,6 +260,9 @@ class App {
       );
   }
 
+  /**
+   * Снимает защиту со всех листов в книге.
+   */
   releaseSheets() {
     /** @type {GoogleAppsScript.Sheets.Schema.Sheet[]} */
     const sheets = JSON.parse(JSON.stringify(this.book.sheets));
@@ -289,77 +287,88 @@ class App {
     }
   }
 
-  // updateAllBooks() {
-  //   const SETTINGS = {
-  //     D2: {
-  //       text: 'Канал "Таблицы Гугл" t.me/GoogleSheets_ru',
-  //       link: 'https://t.me/+lmannExYEyg5OTZi',
-  //       startOffset: 21,
-  //       rangeA1: 'D2',
-  //     },
-  //     D3: {
-  //       text: 'Таблицы и Скрипты Гугл - чат t.me/google_sheets_pro',
-  //       link: 'https://t.me/+pLLUBtcXIqY0MGMy',
-  //       startOffset: 29,
-  //       rangeA1: 'D3',
-  //     },
-  //     D4: {
-  //       text: 'Чат по Apps Script для специалистов t.me/googleappsscriptrc',
-  //       link: 'https://t.me/+7HbI3eq42C80MmMy',
-  //       startOffset: 36,
-  //       rangeA1: 'D4',
-  //     },
-  //   };
+  /**
+   * Обновляет ссылки в футере на всех связанных книгах.
+   * Находит все таблицы в папке `APP_FOLDER_ID`, и в каждой из них на листе "О Таблице"
+   * в ячейке D4 обновляет ссылку на чат специалистов по Apps Script.
+   * Также форматирует текст и выводит в консоль отсортированный список обработанных таблиц.
+   *
+   * Это кастомная функция для канала "Таблицы Гугл"
+   */
+  updateAllBooks() {
+    const SETTINGS = {
+      D2: {
+        text: 'Канал "Таблицы Гугл" t.me/GoogleSheets_ru',
+        link: 'https://t.me/+lmannExYEyg5OTZi',
+        startOffset: 21,
+        rangeA1: 'D2',
+      },
+      D3: {
+        text: 'Таблицы и Скрипты Гугл - чат t.me/google_sheets_pro',
+        link: 'https://t.me/+pLLUBtcXIqY0MGMy',
+        startOffset: 29,
+        rangeA1: 'D3',
+      },
+      D4: {
+        text: 'Чат по Apps Script для специалистов t.me/googleappsscriptrc',
+        link: 'https://t.me/+7HbI3eq42C80MmMy',
+        startOffset: 36,
+        rangeA1: 'D4',
+      },
+    };
 
-  //   const { rangeA1, text, link, startOffset } = SETTINGS.D4;
+    const { rangeA1, text, link, startOffset } = SETTINGS.D4;
 
-  //   const textStyle = SpreadsheetApp.newTextStyle();
-  //   textStyle.setForegroundColor('#434343');
-  //   textStyle.setFontSize(10);
-  //   textStyle.setItalic(true);
-  //   const ts = textStyle.build();
-  //   console.log(this.settings.APP_FOLDER_ID);
-  //   const books = DriveApp.searchFiles(
-  //     `'${this.settings.APP_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.spreadsheet'`,
-  //   );
+    const textStyle = SpreadsheetApp.newTextStyle();
+    textStyle.setForegroundColor('#434343');
+    textStyle.setFontSize(10);
+    textStyle.setItalic(true);
+    const ts = textStyle.build();
+    console.log(this.settings.APP_FOLDER_ID);
+    const books = DriveApp.searchFiles(
+      `'${this.settings.APP_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.spreadsheet'`,
+    );
 
-  //   const out = [];
+    const out = [];
 
-  //   while (books.hasNext()) {
-  //     const book = SpreadsheetApp.openById(books.next().getId());
-  //     console.log(book.getName());
-  //     const sheet = book.getSheetByName('О Таблице');
-  //     if (sheet) {
-  //       const range = sheet.getRange(rangeA1);
-  //       const item = {};
-  //       item.name = book.getName();
-  //       item.url = book.getUrl();
-  //       item.value = range.getValue();
-  //       item.rtv = range.getRichTextValue().getLinkUrl();
-  //       out.push(item);
+    while (books.hasNext()) {
+      const book = SpreadsheetApp.openById(books.next().getId());
+      console.log(book.getName());
+      const sheet = book.getSheetByName('О Таблице');
+      if (sheet) {
+        const range = sheet.getRange(rangeA1);
+        const item = {};
+        item.name = book.getName();
+        item.url = book.getUrl();
+        item.value = range.getValue();
+        item.rtv = range.getRichTextValue().getLinkUrl();
+        out.push(item);
 
-  //       if (item.value !== text || item.rtv !== link) {
-  //         const nrtv = SpreadsheetApp.newRichTextValue();
-  //         nrtv.setText(text);
-  //         nrtv.setTextStyle(ts);
-  //         nrtv.setLinkUrl(startOffset, text.length, link);
-  //         range.setRichTextValue(nrtv.build());
-  //         range.setHorizontalAlignment('right').setVerticalAlignment('middle');
-  //       }
-  //     }
-  //   }
+        if (item.value !== text || item.rtv !== link) {
+          const nrtv = SpreadsheetApp.newRichTextValue();
+          nrtv.setText(text);
+          nrtv.setTextStyle(ts);
+          nrtv.setLinkUrl(startOffset, text.length, link);
+          range.setRichTextValue(nrtv.build());
+          range.setHorizontalAlignment('right').setVerticalAlignment('middle');
+        }
+      }
+    }
 
-  //   out
-  //     .sort((a, b) => {
-  //       const aN = Number(a.name.replace(/.*#(\d+).*/, '$1')) || 0;
-  //       const bN = Number(b.name.replace(/.*#(\d+).*/, '$1')) || 0;
-  //       if (aN < bN) return -1;
-  //       if (aN > bN) return 1;
-  //       return 0;
-  //     })
-  //     .forEach((item) => console.log(item));
-  // }
+    out
+      .sort((a, b) => {
+        const aN = Number(a.name.replace(/.*#(\d+).*/, '$1')) || 0;
+        const bN = Number(b.name.replace(/.*#(\d+).*/, '$1')) || 0;
+        if (aN < bN) return -1;
+        if (aN > bN) return 1;
+        return 0;
+      })
+      .forEach((item) => console.log(item));
+  }
 
+  /**
+   * Устанавливает имя книги на основе данных из ячеек.
+   */
   resetName() {
     let title = 'Таблица чата ';
     const bookNameRange = this.currentBook.getRangeByName('BOOK_NAME');
@@ -372,15 +381,14 @@ class App {
     DriveApp.getFileById(this.settings.APP_CURRENT_ID).setName(title);
   }
 
+  /**
+   * Создает и настраивает следующую книгу (таблицу) чата.
+   */
   createNextBook() {
-    // Получаем текущий файл таблицы по ID из настроек
     const currentBook = DriveApp.getFileById(this.settings.APP_CURRENT_ID);
-    // Увеличиваем номер текущего файла на 1
     const num = Number(this.settings.APP_CURRENT_FILE_NUM) + 1;
-    // Создаем копию текущей таблицы с новым именем в указанной папке
     const copy = currentBook.makeCopy(`Таблица чата t.me/google_sheets_pro #${num}`, this.folder);
     copy.getEditors().forEach((editor) => copy.removeEditor(editor));
-    // Устанавливаем права доступа на редактирование для всех
     copy.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
     if (this.settings.APP_MASTER_EDITOR) {
       copy.addEditor(this.settings.APP_MASTER_EDITOR);
@@ -388,30 +396,15 @@ class App {
     if (this.settings.APP_EXPERTS_EDITOR) {
       copy.addEditors(this.settings.APP_EXPERTS_EDITOR.split(',').map((email) => email.trim()));
     }
-    // Создаем настройки для новой Таблицы
     const settings = { ...this.settings, ...{ APP_CURRENT_FILE_NUM: `${num}`, APP_CURRENT_ID: copy.getId() } };
-    const newApp = new App(settings);
-
-    newApp.unlinkForms();
-
-    // Обновляем технический штамп в новой таблице с информацией о предыдущей таблице
-    newApp.updateStamp({ num, prevUrl: currentBook.getUrl(), prevTitle: currentBook.getName() });
-    // "Обнуляем" новую таблицу (удаляем ненужные листы)
-    newApp.cleanBook();
-    // Добавляем новый пустой лист для пользователя
-    newApp.addNewBlankUserSheet();
-    // Сортируем листы в новой таблице
-    newApp.orderSheetsByProtections();
-    // Генерируем оглавление для новой таблицы
-    newApp.generateTOC();
-
-    if (this.settings.APP_MASTER_EDITOR) {
-      currentBook.removeEditor(this.settings.APP_MASTER_EDITOR);
-    }
-
-    this.releaseSheets();
-
-    // Обновление прошло успешно - обновляем настройки приложения и выходми
+    const prevUrl = currentBook.getUrl();
+    const prevTitle = currentBook.getName();
     this.settings = settings;
+    this.updateStamp({ num, prevUrl, prevTitle });
+    this.unlinkForms();
+    this.cleanBook({ excludes: [] });
+    this.addNewBlankUserSheet();
+    this.orderSheetsByProtections();
+    this.generateTOC();
   }
 }
