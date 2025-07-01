@@ -388,6 +388,10 @@ class App {
     const currentBook = DriveApp.getFileById(this.settings.APP_CURRENT_ID);
     const num = Number(this.settings.APP_CURRENT_FILE_NUM) + 1;
     const copy = currentBook.makeCopy(`Таблица чата t.me/google_sheets_pro #${num}`, this.folder);
+    const fileMetadata = {
+      writersCanShare: false,
+    };
+    Drive.Files.update(fileMetadata, copy.getId());
     copy.getEditors().forEach((editor) => copy.removeEditor(editor));
     copy.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
     if (this.settings.APP_MASTER_EDITOR) {
