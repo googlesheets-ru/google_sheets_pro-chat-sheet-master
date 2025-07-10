@@ -27,6 +27,16 @@ function triggerUpdateEveryHour() {
   app.generateTOC();
 }
 
+/* exported triggerUpdateEvery5Min */
+/**
+ * Триггер ежеминутного обновления Таблицы.
+ * Используется для отладки. Переименовывает текущую книгу.
+ */
+function triggerUpdateEvery5Min() {
+  const app = new App();
+  app.checkNewMembers();
+}
+
 /* exported triggerUpdateEveryMin */
 /**
  * Триггер ежеминутного обновления Таблицы.

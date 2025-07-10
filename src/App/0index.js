@@ -1,4 +1,6 @@
-/* exported App */
+/* global Group */
+
+/* exported App*/
 class App {
   /**
    * @param {App.Settings} [settings] Начальные настройки.
@@ -21,6 +23,13 @@ class App {
    */
   set currentBook(book) {
     this._currentBook = book;
+  }
+
+  get group() {
+    if (!this._group) {
+      this._group = new Group(this.settings);
+    }
+    return this._group;
   }
 
   /**
