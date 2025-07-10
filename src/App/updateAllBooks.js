@@ -37,7 +37,6 @@ App.prototype.updateAllBooks = function () {
   textStyle.setFontSize(10);
   textStyle.setItalic(true);
   const ts = textStyle.build();
-  console.log(this.settings.APP_FOLDER_ID);
   const books = DriveApp.searchFiles(
     `'${this.settings.APP_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.spreadsheet'`,
   );
@@ -46,7 +45,6 @@ App.prototype.updateAllBooks = function () {
 
   while (books.hasNext()) {
     const book = SpreadsheetApp.openById(books.next().getId());
-    console.log(book.getName());
     const sheet = book.getSheetByName('О Таблице');
     if (sheet) {
       const range = sheet.getRange(rangeA1);
@@ -68,13 +66,11 @@ App.prototype.updateAllBooks = function () {
     }
   }
 
-  out
-    .sort((a, b) => {
-      const aN = Number(a.name.replace(/.*#(\d+).*/, '$1')) || 0;
-      const bN = Number(b.name.replace(/.*#(\d+).*/, '$1')) || 0;
-      if (aN < bN) return -1;
-      if (aN > bN) return 1;
-      return 0;
-    })
-    .forEach((item) => console.log(item));
+  out.sort((a, b) => {
+    const aN = Number(a.name.replace(/.*#(\d+).*/, '$1')) || 0;
+    const bN = Number(b.name.replace(/.*#(\d+).*/, '$1')) || 0;
+    if (aN < bN) return -1;
+    if (aN > bN) return 1;
+    return 0;
+  });
 };
